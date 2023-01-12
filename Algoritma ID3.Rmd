@@ -1,0 +1,167 @@
+---
+title: "Dona Rizqi Aulia"
+date: "`r Sys.Date()`"
+author: Dona Rizqi Aulia-Statistika dan Bisnis Muhammadiyah
+output:
+  rmdformats::downcute:
+    self_contained: true
+    thumbnails: true
+    lightbox: true
+    gallery: false
+    highlight: tango
+bibliography: references.bib
+---
+
+```{=html}
+<style>
+
+
+body{
+text-align: justify}
+</style>
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Pengertian
+Algoritma Iterative Dichotomiser 3 (ID3) ditemukan oleh J. Ross
+Quinlan th 1986 digunakan untuk menghasilkan pohon keputusan
+dari suatu dataset.
+
+ID3 (Iterative Dichotomiser 3) merupakan salah satu metode dalam
+data mining yang arsitekturnya dengan pohon keputusan dibuat
+menyerupai bentuk pohon.
+
+Dimana pada umumnya sebuah pohon terdapat akar (root), cabang
+yang hanya terdapat satu input dan min dua output dan daun (leaf
+node).
+
+Pembentukan pohon klasifikasi dengan ID3 ada 2 Langkah, yaitu
+menghitung nilai entropy dan menghitung nilai information gain dari
+setiap variable.
+
+# Thapan Algoritma ID3
+1. Menyiapkan dataset
+2. Menghitung Nilai Entropy
+3. Menghitung nilai Gain
+4. Membuat node cabang dari nilai gain yang terbesar
+5. Proses perhitungan Information Gain terus dilakukan sampai semua    data masuk kedalam kelas yang sama. Atribut yang telah dipilih tidak diikutkan lagi dalam nilai Information Gain.
+
+# Eksperimen
+```{r}
+library(dplyr)
+```
+
+## Masukan Dataset
+```{r}
+library(readxl)
+Data_penguin <- read_excel("~/ALGORITMA-ID3/Data penguin.xlsx")
+View(Data_penguin)
+```
+
+Nilai Entropy pada setiap fitur/kolom dapat dihitung sebagai berikut:
+```{r}
+entropy <- function(target) {
+  freq <- table(target)/length(target)
+  # Vektorisasi kolom dataframe
+  vec <- as.data.frame(freq)[,2]
+  #drop 0 to avoid NaN resulting from log2
+  vec<-vec[vec>0]
+  # Menghitung Nilai Entropy
+  -sum(vec * log2(vec))
+}
+# Menghitung Nilai Entropy Kolom Species
+print(entropy(Data_penguin$Species))
+```
+    
+Menghitung nilai entropy culmen.length
+```{r}
+print(entropy(Data_penguin$Culmen.Length))
+```
+
+Menghitung nilai entropy culmen.depth
+```{r}
+print(entropy(Data_penguin$Culmen.Depth))
+```
+
+Menghitung nilai entropy flipper.length
+```{r}
+print(entropy(Data_penguin$Flipper.Length))
+```
+
+Menghitung nilai entropy Body,Mass
+```{r}
+print(entropy(Data_penguin$Body.Mass))
+```
+
+Kemudian, berikut adalah bagaimana menghitung nilai Information Gain dari setiao fitur/kolom dalam suatu dataset:
+```{r}
+IG_numeric<-function(data, feature, target, bins=4) {
+  #Hapus baris di mana fiturnya adalah NA
+  data<-data[!is.na(data[,feature]),]
+  #Menghitung entropi untuk induk(label data)
+  e0<-entropy(data[,target])
+  
+  data$cat<-cut(data[,feature], breaks=bins, labels=c(1:bins))
+  
+  #gunakan dplyr untuk menghitung e dan p untuk setiap nilai fitur
+  dd_data <- data %>% group_by(cat) %>% summarise(e=entropy(get(target)), 
+                 n=length(get(target)),
+                 min=min(get(feature)),
+                 max=max(get(feature))
+                 )
+  
+  #hitung p untuk setiap nilai fitur
+  dd_data$p<-dd_data$n/nrow(data)
+  #menghitung IG
+  IG<-e0-sum(dd_data$p*dd_data$e)
+  
+  return(IG)
+}
+
+```
+
+Membuat Data Frame untuk Nilai Entropy & Information Gain Setiap Kolom dan Diurutkan:
+```{r}
+Fitur_Exploration <- function(df, bin){
+  E <- numeric()
+  for (i in 1:ncol(df)){
+    nama<-names(df)[i]
+    E[i]<-entropy(df[,nama])
+    }
+  
+  ig <- numeric()
+  kol=ncol(df)-1
+  for (i in 1:kol){
+    ig[i]<-IG_numeric(df, names(df)[i], names(df)[ncol(df)], bins=bin)
+  }
+  ig[ncol(df)]<-0 #Masih dicek lagi
+  Column_Name <- names(df)
+  Entropy <- E
+  IG <- ig
+  df_E <- data.frame(Column_Name, Entropy, IG)
+  df_E_sort <- df_E[order(-IG),]
+  return(df_E_sort)
+} 
+```
+
+##    Column_Name  Entropy        IG
+## 4  Petal.Width 4.049827 1.3245310
+## 3 Petal.Length 5.034570 1.2662530
+## 1 Sepal.Length 4.822018 0.6402424
+## 2  Sepal.Width 4.023181 0.3914756
+## 5      Species 1.584963 0.0000000
+
+```{r}
+library(rpart)
+library(rpart.plot)
+trees<-rpart(Species ~., data = iris, method = 'class')
+rpart.plot(trees)
+```
+
+# Referensi
+
+<https://rpubs.com/philjet/shannonentropy>
+<https://victorzhou.com/blog/information-gain/>
+<https://informatikalogi.com/algoritma-id3/>
