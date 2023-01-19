@@ -62,102 +62,41 @@ View(Data_penguin)
 
 Nilai Entropy pada setiap fitur/kolom dapat dihitung sebagai berikut:
 ```{r}
-entropy <- function(target) {
-  freq <- table(target)/length(target)
-  # Vektorisasi kolom dataframe
-  vec <- as.data.frame(freq)[,2]
-  #drop 0 to avoid NaN resulting from log2
-  vec<-vec[vec>0]
-  # Menghitung Nilai Entropy
-  -sum(vec * log2(vec))
+IsPure <- function(data) {
+  length(unique(data[,ncol(data)])) == 1
 }
-# Menghitung Nilai Entropy Kolom Species
-print(entropy(Data_penguin$Species))
-```
-    
-Menghitung nilai entropy culmen.length
-```{r}
-print(entropy(Data_penguin$Culmen.Length))
-```
-
-Menghitung nilai entropy culmen.depth
-```{r}
-print(entropy(Data_penguin$Culmen.Depth))
-```
-
-Menghitung nilai entropy flipper.length
-```{r}
-print(entropy(Data_penguin$Flipper.Length))
-```
-
-Menghitung nilai entropy Body,Mass
-```{r}
-print(entropy(Data_penguin$Body.Mass))
-```
-
-Kemudian, berikut adalah bagaimana menghitung nilai Information Gain dari setiao fitur/kolom dalam suatu dataset:
-```{r}
-IG_numeric<-function(data, feature, target, bins=4) {
-  #Hapus baris di mana fiturnya adalah NA
-  data<-data[!is.na(data[,feature]),]
-  #Menghitung entropi untuk induk(label data)
-  e0<-entropy(data[,target])
-  
-  data$cat<-cut(data[,feature], breaks=bins, labels=c(1:bins))
-  
-  #gunakan dplyr untuk menghitung e dan p untuk setiap nilai fitur
-  dd_data <- data %>% group_by(cat) %>% summarise(e=entropy(get(target)), 
-                 n=length(get(target)),
-                 min=min(get(feature)),
-                 max=max(get(feature))
-                 )
-  
-  #hitung p untuk setiap nilai fitur
-  dd_data$p<-dd_data$n/nrow(data)
-  #menghitung IG
-  IG<-e0-sum(dd_data$p*dd_data$e)
-  
-  return(IG)
+Entropy <- function( vls ) {
+  res <- vls/sum(vls) * log2(vls/sum(vls))
+  res[vls == 0] <- 0
+  -sum(res)
 }
-
+entropy <- function(edible) Entropy(c(edible, 100 - edible))
+entropy <- Vectorize(entropy)
+curve( entropy, from = 0, to = 100, xname = 'edible')
 ```
 
-Membuat Data Frame untuk Nilai Entropy & Information Gain Setiap Kolom dan Diurutkan:
-```{r}
-Fitur_Exploration <- function(df, bin){
-  E <- numeric()
-  for (i in 1:ncol(df)){
-    nama<-names(df)[i]
-    E[i]<-entropy(df[,nama])
-    }
-  
-  ig <- numeric()
-  kol=ncol(df)-1
-  for (i in 1:kol){
-    ig[i]<-IG_numeric(df, names(df)[i], names(df)[ncol(df)], bins=bin)
-  }
-  ig[ncol(df)]<-0 #Masih dicek lagi
-  Column_Name <- names(df)
-  Entropy <- E
-  IG <- ig
-  df_E <- data.frame(Column_Name, Entropy, IG)
-  df_E_sort <- df_E[order(-IG),]
-  return(df_E_sort)
-} 
-```
-
-##    Column_Name  Entropy        IG
-## 4  Petal.Width 4.049827 1.3245310
-## 3 Petal.Length 5.034570 1.2662530
-## 1 Sepal.Length 4.822018 0.6402424
-## 2  Sepal.Width 4.023181 0.3914756
-## 5      Species 1.584963 0.0000000
+Kemudian, berikut adalah bagaimana menghitung nilai Information Gain dari setiao fitur/kolom dalam suatu dataset
 
 ```{r}
 library(rpart)
 library(rpart.plot)
 trees<-rpart(Species ~., data = iris, method = 'class')
 rpart.plot(trees)
+```
+
+```{r}
+InformationGain <- function( tble ) {
+  tble <- as.data.frame.matrix(tble)
+  entropyBefore <- Entropy(colSums(tble))
+  s <- rowSums(tble)
+  entropyAfter <- sum (s / sum(s) * apply(tble, MARGIN = 1, FUN = Entropy ))
+  informationGain <- entropyBefore - entropyAfter
+  return (informationGain)
+}
+```
+
+```{r}
+InformationGain(table(Data_penguin[,c('Culmen.Length', 'Species')]))
 ```
 
 # Referensi
